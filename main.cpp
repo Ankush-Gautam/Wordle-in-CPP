@@ -1,77 +1,157 @@
-#include "Colors.h"
-#include "dictionary.cpp"
-#include <iostream>
-#include <windows.h>
-#include <conio.h>
-#include <string.h>
-#include <time.h>
+#include "dictionary.h"
+#include "myfunctions.h"
 #include <fstream>
 using namespace std;
 
-/* global variables */
-static int guessCount = 0;
-char word[6];
-char todaysWord[6];
-bool wordGuessed = false;
-bool outOfGuess = false;
-long int dictionarySize = 5757;
-
-long long int randomGenerator()
+const char* filename = "data.dll";
+/* ==============================================================================================================
+    PLAYER class
+   ============================================================================================================= */
+class Player
 {
-    srand(time(0));
-    long long int num = rand() % dictionarySize + 1;
-    return num;
-}
-void loadWord()
-{
-    strcpy(todaysWord, dictionary[randomGenerator()]);
-}
+protected:
 
-void pause()
-{
-    lightpurple();
-    cout<<"\n\n\tPress Any to Key Continue...";
-    getch();
-    gray();
-}
+    string playerName;
+    int wins;
+    int played;
+    int Streak;
+    int maxStreak;
+    double winPercent;
 
-void gotoxy(int x, int y)
-{
-    COORD c;
-    c.X = x;
-    c.Y = y;
+public:
 
-    SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), c);
-}
-
-void upperline(int length)
-{
-    //upper line
-    for(int i = 0; i < length; i++)
+    Player()
     {
-        cout << char(220);
     }
-}
 
-void verticalline(int x, int y, int length)
-{
-    for(int i = y; i < length; i++)
+    void getName()
     {
-        gotoxy(x, i);
-        cout << char(219);
+        cout << "\tEnter Player Name: ";
+        cin >> playerName;
     }
-}
 
-void bottomline(int length)
-{
-    for(int i = 0; i < length; i++)
+    void calcStats()
     {
-        cout << char(223); //this char touches upper line which makes block appears as joined
+        winPercent = (double(wins) / double(played)) * 100;
+
+        if(Streak >= maxStreak)
+        {
+            maxStreak = Streak;
+        }
     }
-}
+
+    void displayStats()
+    {
+        calcStats();
+        if(playerName == "NO TITLE")
+        {
+            getName();
+        }
+        cout << "\tPlayer Name      :   " << playerName << endl;
+        cout << "\tPlayed           :   " << played << endl;
+        cout << "\tWins             :   " << wins << endl;
+        cout << "\tWin %            :   " << winPercent << " %" << endl;
+        cout << "\tCurrent Streak   :   " << Streak << endl;
+        cout << "\tMax Streak       :   " << maxStreak << endl;
+    }
+
+    void saveStats()
+    {
+        ofstream file(filename, ios::out | ios::binary);
+        file << playerName << " " << played << " " << wins << " " << winPercent << " " << Streak << " " << maxStreak;
+        file.close();
+    }
+    void readStats()
+    {
+        ifstream file(filename, ios::in | ios::binary);
+        file.seekg(0, ios::beg);
+        if(!file.is_open())
+        {
+            getName();
+            wins = 0;
+            played = 0;
+            Streak = 0;
+            maxStreak = 0;
+            winPercent = 0;
+        }
+        else
+        {
+            file >> playerName >> played >> wins >> winPercent >> Streak >> maxStreak;
+        }
+
+        file.close();
+    }
+
+};
 
 
-void gameBoard()
+/* ==============================================================================================================
+    WORDLE class
+   ============================================================================================================= */
+class Wordle : public Player
+{
+private:
+    static int guessCount;
+    long int dictionarySize = 5756;
+
+    const char alphabets[27] =
+    {
+        'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j',
+        'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't',
+        'u', 'v', 'w', 'x', 'y', 'z'
+    };
+
+    char word[6];
+    char todaysWord[6];
+    bool wordGuessed;
+    bool outOfGuess;
+
+public:
+
+    //variables for stats
+    static int currentWins;
+    static int currentPlayed;
+    static int currentStreak;
+    static bool currentPlayerLose;
+
+    Wordle(): word(""), wordGuessed(false), outOfGuess(false)
+    {
+
+    }
+
+    //My-methods
+    void gameBoard();               //drawing gameBoard of matrix
+    void sideMsg(const char*);
+    void loadWord();                //loads word of the day
+    void checkGameStatus();         //checks if out of guess or won
+    bool gameOver();                // checkGameStatus to return gameOver
+    void askUser();                 //asks the user for words and also checks for win/loss
+    void displayLetter(char, int);  //char to diplay and int the index of the char
+    bool isValidWord(char*);        // checks if the word is in the dictionary
+    void logic();
+    bool includesLetter(char);          //checks if the wordle include that letter
+
+    //WORDLE-HEADER
+    void HEADER();
+
+    //Menu-items
+    void Menu();
+    void startGame();
+    void statistics();
+    void howToPlay();
+    void about();
+
+};
+
+//static variables
+int Wordle::guessCount = 0;
+int Wordle::currentWins = 0;
+int Wordle::currentPlayed = 0;
+int Wordle::currentStreak = 0;
+bool Wordle::currentPlayerLose = false;
+
+/* --------------------------------------------WORDLE METHODS-------------------------------------------------- */
+void Wordle::gameBoard()
 {
 
     //for drawing row
@@ -88,44 +168,69 @@ void gameBoard()
     }
 }
 
-void displayWord(char* word)
+void Wordle::sideMsg(const char* msg)
 {
-    int x = 41; //starting coord of x
-    int y; //coord of y
-
-    //changing the position of row
-    switch(guessCount)
-    {
-    case 0:
-        y = 9;
-        break;
-
-    case 1:
-        y = 12;
-        break;
-
-    case 2:
-        y = 15;
-        break;
-
-    case 3:
-        y = 18;
-        break;
-
-    case 4:
-        y = 21;
-        break;
-    }
-
-    for(int i = 0; i < 5; i++)
-    {
-        gotoxy(x, y);
-        cout << char(toupper(word[i]));
-        x += 6;
-    }
+    gotoxy(69, 13);
+    std::cout << msg;
 }
 
-void displayLetter(char ch, int i)
+void Wordle::loadWord()
+{
+    int randomNum = randomGenerator(dictionarySize);
+    strcpy(todaysWord, dictionary[randomNum]);
+}
+
+bool Wordle::gameOver()
+{
+    if(outOfGuess)
+        return true;
+    else if(wordGuessed)
+        return true;
+    else
+        return false;
+}
+
+void Wordle::askUser()
+{
+    bool valid = false;
+    do
+    {
+        gotoxy(8, 25);
+        cout << BLACK;
+        cout << "Guess the word:                                                                      \n                                               ";
+        cout << GREY;
+        gotoxy(24, 25);
+        cin >> word;
+        //making the word lowercase for error prone
+        strcpy(word, strlwr(word));
+
+        if(strlen(word) != 5 )
+        {
+            cout << RED;
+            sideMsg("Word must be 5 letters!      ");
+            cout << GREY;
+
+        }
+        else if(!isValidWord(word))
+        {
+            cout << RED;
+            sideMsg("Word not found in Dictionary!");
+            cout << GREY;
+        }
+        else
+        {
+            valid = true;
+            sideMsg("                              "); //to remove the sidemsg if word is valid
+        }
+    }
+    while(!valid);
+
+    checkGameStatus();
+    logic();
+    ++guessCount;
+
+}
+void Wordle::displayLetter(char ch, int i)
 {
 
     /*       i = 0     1      2       3       4
@@ -146,45 +251,45 @@ void displayLetter(char ch, int i)
     //changing the position of column
     switch(index)
     {
-    case 0:
-    case 5:
-    case 10:
-    case 15:
-    case 20:
-        x = 11;
-        break;
+        case 0:
+        case 5:
+        case 10:
+        case 15:
+        case 20:
+            x = 11;
+            break;
 
-    case 1:
-    case 6:
-    case 11:
-    case 16:
-    case 21:
-        x = 17;
-        break;
+        case 1:
+        case 6:
+        case 11:
+        case 16:
+        case 21:
+            x = 17;
+            break;
 
-    case 2:
-    case 7:
-    case 12:
-    case 17:
-    case 22:
-        x = 23;
-        break;
+        case 2:
+        case 7:
+        case 12:
+        case 17:
+        case 22:
+            x = 23;
+            break;
 
-    case 3:
-    case 8:
-    case 13:
-    case 18:
-    case 23:
-        x = 29;
-        break;
+        case 3:
+        case 8:
+        case 13:
+        case 18:
+        case 23:
+            x = 29;
+            break;
 
-    case 4:
-    case 9:
-    case 14:
-    case 19:
-    case 24:
-        x = 35;
-        break;
+        case 4:
+        case 9:
+        case 14:
+        case 19:
+        case 24:
+            x = 35;
+            break;
     }
 
     //changing position for row
@@ -199,82 +304,172 @@ void displayLetter(char ch, int i)
     else
         y = 21;
 
-
     gotoxy(x, y);
     cout << char(toupper(ch));
 }
 
-void HEADER()
+bool Wordle::isValidWord(char* word)
 {
-    black();
-    cout << GREEN;
-    cout << "\n\n\t W ";
-    cout << WHITE;
-    cout << " ";
-    cout << GREEN;
-    cout << " O ";
-    cout << WHITE;
-    cout << " ";
-    cout << GREEN;
-    cout << " R ";
-    cout << WHITE;
-    cout << " ";
-    cout << GREEN;
-    cout << " D ";
-    cout << WHITE;
-    cout << " ";
-    cout << GREEN;
-    cout << " L ";
-    cout << WHITE;
-    cout << " ";
-    cout << GREEN;
-    cout << " E ";
-    cout << WHITE;
-    cout << " ";
-    cout << "\n\n\t";
-
-    cout << YELLOW;
-    cout << " B ";
-    cout << WHITE;
-    cout << " ";
-    cout << GREEN;
-    cout << " Y ";
-    cout << WHITE;
-    cout << "  ";
-    white();
-    cout << RED;
-    cout << " A ";
-    cout << WHITE;
-    cout << " ";
-    cout << SKY;
-    cout << " G ";
-    cout << WHITE;
-    cout << "\n\n";
-    gray();
-}
-
-void sideMsg(string msg)
-{
-    gotoxy(69, 10);
-    cout << msg;
-}
-
-bool includesLetter(char ch)
-{
-    //to check if the guessWord contains letters of today's word
-
-    for(int j = 0; j < 5; j++)
+    for(int i = 0; i < dictionarySize; i++)
     {
-        if(ch == todaysWord[j])
+        if(strcmp(word, dictionary[i]) == 0)
             return true;
     }
 
     return false;
 }
 
-void checkWord()
+void Wordle::checkGameStatus()
 {
-    int dSize = 5;
+    if(strcmp(word, todaysWord) == 0)
+    {
+        cout << GREEN;
+        sideMsg("Marvelous. You won!");
+        cout << GREY;
+        wordGuessed = true;
+        ++currentWins;
+        ++currentStreak;
+    }
+    else if(guessCount >= 4)
+    {
+        cout << RED;
+        sideMsg("The word was ");
+        cout << GREEN;
+        cout << todaysWord << ".";
+        cout << GREY;
+        outOfGuess = true;
+        currentPlayerLose = true;
+        currentStreak = 0;
+    }
+}
+
+bool Wordle::includesLetter(char ch)
+{
+    //to check if the guessWord contains letters of today's word
+    for(int j = 0; j < 5; j++)
+    {
+        if(ch == todaysWord[j])
+            return true;
+    }
+    return false;
+}
+
+void displayLetterStatus(char ch)
+{
+    cout << WHITE;
+    switch(ch)
+    {
+        case 'a':
+            gotoxy(69, 10);
+            cout << 'a';
+            break;
+        case 'b':
+            gotoxy(71, 10);
+            cout << 'b';
+            break;
+        case 'c':
+            gotoxy(73, 10);
+            cout << 'c';
+            break;
+        case 'd':
+            gotoxy(75, 10);
+            cout << 'd';
+            break;
+        case 'e':
+            gotoxy(77, 10);
+            cout << 'e';
+            break;
+        case 'f':
+            gotoxy(79, 10);
+            cout << 'f';
+            break;
+        case 'g':
+            gotoxy(81, 10);
+            cout << 'g';
+            break;
+        case 'h':
+            gotoxy(83, 10);
+            cout << 'h';
+            break;
+        case 'i':
+            gotoxy(85, 10);
+            cout << 'i';
+            break;
+        case 'j':
+            gotoxy(87, 10);
+            cout << 'j';
+            break;
+        case 'k':
+            gotoxy(89, 10);
+            cout << 'k';
+            break;
+        case 'l':
+            gotoxy(91, 10);
+            cout << 'l';
+            break;
+        case 'm':
+            gotoxy(93, 10);
+            cout << 'm';
+            break;
+        case 'n':
+            gotoxy(69, 11);
+            cout << 'n';
+            break;
+        case 'o':
+            gotoxy(71, 11);
+            cout << 'o';
+            break;
+        case 'p':
+            gotoxy(73, 11);
+            cout << 'p';
+            break;
+        case 'q':
+            gotoxy(75, 11);
+            cout << 'q';
+            break;
+
+        case 'r':
+            gotoxy(77, 11);
+            cout << 'r';
+            break;
+        case 's':
+            gotoxy(79, 11);
+            cout << 's';
+            break;
+        case 't':
+            gotoxy(81, 11);
+            cout << 't';
+            break;
+        case 'u':
+            gotoxy(83, 11);
+            cout << 'u';
+            break;
+        case 'v':
+            gotoxy(85, 11);
+            cout << 'v';
+            break;
+        case 'w':
+            gotoxy(87, 11);
+            cout << 'w';
+            break;
+        case 'x':
+            gotoxy(89, 11);
+            cout << 'x';
+            break;
+        case 'y':
+            gotoxy(91, 11);
+            cout << 'y';
+            break;
+        case 'z':
+            gotoxy(93, 11);
+            cout << 'z';
+            break;
+    }
+}
+
+/* ------------------------------------------MAIN LOGIC-------------------------------------------- */
+void Wordle::logic()
+{
 
     for(int i = 0; i < 5; i++)
     {
@@ -286,120 +481,145 @@ void checkWord()
             {
                 if(todaysWord[i] == word[i])
                 {
-                    lightgreen();
+                    cout << GREEN;
                     displayLetter(word[i], i); //if letter and position is correct
 
-                    gray();
+                    cout << GREY;
                     break;
                 }
                 else
                 {
-                    yellow();
+                    cout << YELLOW;
                     displayLetter(word[i], i); //if letter is correct but position is wrong
-                    gray();
+                    cout << GREY;
                     break;
                 }
             }
             else
             {
-                lightred();
+                cout << RED;
                 displayLetter(word[i], i);  //if letter is wrong
-                gray();
+                displayLetterStatus(word[i]);
+                cout << GREY;
                 break;
             }
-        }
-    }
-}
 
-void checkGameStatus()
-{
-    if(strcmp(word, todaysWord) == 0)
-    {
-        lightgreen();
-        sideMsg("Marvelous. You won!");
-        gray();
-        wordGuessed = true;
-    }
-    else if(guessCount == 4)
-    {
-        lightred();
-        sideMsg("The word was ");
-        cout << _strupr(todaysWord) << ".";
-        gray();
-        outOfGuess = true;
-    }
-}
-bool isValidWord(char* word)
-{
-    for(int i = 0; i < dictionarySize; i++)
-    {
-        if(strcmp(word, dictionary[i]) == 0)
-            return true;
-    }
+        }//end of j loop
+    }//i loop
+}//end of logic()
 
-    return false;
-}
-void askUser()
-{
-    bool valid = false;
-    do
-    {
-        gotoxy(8, 25);
-        black();
-        cout << "Guess the word:                        ";
-        gray();
-        gotoxy(24, 25);
-        cin >> word;
-        if(strlen(word) != 5 )
-        {
-            lightred();
-            sideMsg("Word must be 5 letters!      ");
-            gray();
-
-        }
-        else if(!isValidWord(word))
-        {
-            lightred();
-            sideMsg("Word not found in Dictionary!");
-            gray();
-        }
-        else
-        {
-            valid = true;
-            sideMsg("                              "); //to remove the sidemsg if word is valid
-        }
-    }
-    while(!valid);
-
-    checkGameStatus();
-    checkWord();
-    guessCount++;
-
-}
-
-
-bool gameOver()
-{
-    if(outOfGuess)
-        return true;
-    else if(wordGuessed)
-        return true;
-    else
-        return false;
-}
-void startGame()
+/* -------------------------------------------- WORDLE-HEADER ------------------------------------------------- */
+void Wordle::HEADER()
 {
     system("cls");
+
+    cout << BLACK;
+    const char title[7] = "WORDLE";
+
+    //W O R D L E title
+    cout << "\n\n\t";
+    for(int i = 0; i < 6; i++)
+    {
+        cout << GREENBG;
+        cout << " " << title[i] << " ";
+        cout << WHITEBG;
+        cout << " ";
+    }
+    cout << "\n\n\t";
+
+    //B Y
+    cout << YELLOWBG;
+    cout << " B ";
+    cout << WHITEBG;
+    cout << " ";
+    cout << GREENBG;
+    cout << " Y ";
+    cout << WHITEBG;
+    cout << "  ";
+
+    //A G
+    cout << WHITE;
+    cout << REDBG;
+    cout << " A ";
+    cout << WHITEBG;
+    cout << " ";
+    cout << SKYBG;
+    cout << " G ";
+    cout << WHITEBG;
+    cout << "\n\n";
+    cout << GREY;
+}
+
+
+/* -------------------------------------------- MENU- ITEMS ------------------------------------------------- */
+void Wordle::Menu()
+{
+    int choice;
+    do
+    {
+        system("cls");
+        cout << BLUE;
+        HEADER();
+
+        cout << BLACK;
+        cout << "\n\tWELCOME TO MAIN MENU\n";
+        cout << GREY;
+        cout << "\n\t1" << char(249) << " Start The Game";
+        cout << "\n\t2" << char(249) << " Statistics";
+        cout << "\n\t3" << char(249) << " How To Play";
+        cout << "\n\t4" << char(249) << " About The Game";
+        cout << "\n\t0" << char(249) << " Quit";
+
+        cout << "\n\n\tEnter your choice:\n\t>> ";
+        cin >> choice;
+
+        switch(choice)
+        {
+            case 1:
+                startGame();
+                break;
+
+            case 2:
+                statistics();
+                break;
+
+            case 3:
+                howToPlay();
+                break;
+
+            case 4:
+                about();
+                break;
+        }
+    }
+    while(choice != 0);
+}
+
+void Wordle::startGame()
+{
     HEADER();
+
+    //initializing & setting up the new game
     guessCount = 0;
     outOfGuess = false;
     wordGuessed = false;
+    Player p;
+    ++currentPlayed;
 
     //side logs display
     gotoxy(69, 8);
-    lightblue();
-    cout << ">> Logs <<";
-    gray();
+    cout << BLUE;
+    cout << ">> Logs";
+    cout << GREY;
+
+    gotoxy(69, 10);
+    //displaying alphabets
+    for(int i = 0; i < 26; i++)
+    {
+        cout << alphabets[i] << " ";
+        if(i % 12 == 0 && i != 0 && i < 20)
+            gotoxy(69, 11);
+    }
 
     //loading todays word
     loadWord();
@@ -410,136 +630,122 @@ void startGame()
         askUser();
     }
 
-    gotoxy(69, 11);
-    purple();
-    cout<<"Press Any Key to Continue...";
+    //saving the data in the file
+    wins += currentWins;
+    played += currentPlayed;
+    if(currentPlayerLose)
+    {
+        Streak = 0;
+    }
+    else
+    {
+        Streak += currentStreak;
+    }
+    saveStats();
+
+    //resetting the current wins to total stats don't get compound
+    currentWins = 0;
+    currentPlayed = 0;
+    currentStreak = 0;
+    currentPlayerLose = false;
+
+    //not using pause() because that has \n\n\t
+    gotoxy(69, 14);
+    cout << MAGENTA;
+    cout << "Press Any to Key Continue...";
+    cout << GREY;
     getch();
-    gray();
 }
-void howToPlay()
+void Wordle::statistics()
 {
-    system("cls");
+    HEADER();
+    cout << BLACK;
+    cout << "\n\tSTATISTICS\n\n";
+    cout << GREY;
+
+    readStats();
+    displayStats();
+
+    pause();
+}
+void Wordle::howToPlay()
+{
     HEADER();
 
-    black();
+    cout << BLACK;
     cout << "\n\tHOW TO PLAY";
-    gray();
+    cout << GREY;
+
     cout << "\n\tGuess the WORDLE in 5 tries.\n";
     cout << "\tEach guess must be a valid five-letter word."
          << " Write the word and Hit enter to submit";
     cout << "\n\tAfter each guess, the color of the letter"
          << " will change to show\n\thow close your guess was to the word.";
 
-    black();
+    cout << BLACK;
     cout << "\n\n\n\tEXAMPLES\n\n";
-    gray();
+    cout << GREY;
 
-    green();
+    cout << GREEN;
     cout << "\tW ";
-    gray();
+    cout << GREY;
     cout << " E A R Y";
     cout << "\n\tThe letter W is in the word and in the correct spot.\n\n";
 
     cout << "\tP ";
-    yellow();
+    cout << YELLOW;
     cout << "I";
-    gray();
+    cout << GREY;
     cout << " L L S";
     cout << "\n\tThe letter I is in the word but in the wrong spot.\n\n";
 
     cout << "\tV A G ";
-    red();
+    cout << RED;
     cout << "U";
-    gray();
+    cout << GREY;
     cout << " E";
     cout << "\n\tThe letter U is not in the word in any spot.";
 
     pause();
 }
 
-void about()
+void Wordle::about()
 {
-    system("cls");
     HEADER();
 
-    black();
-    cout<<"\n\tABOUT THE ORIGNINAL GAME\n";
-    gray();
-    cout<<"\tWordle is a web-based word game created and developed by Welsh software engineer Josh Wardle"
-        <<",\n\tand owned and published by The New York Times Company since 2022."
-        <<" The game gained a large \n\tamount of popularity in December 2021 after Wardle added the ability "
-        <<"for players to copy \n\ttheir daily results as emoji squares, which were widely shared on Twitter.\n\n";
+    cout << BLACK;
+    cout << "\n\tABOUT THE ORIGNINAL GAME\n";
+    cout << GREY;
+    cout << "\tWordle is a web-based word game created and developed by Welsh software engineer Josh Wardle"
+         << ",\n\tand owned and published by The New York Times Company since 2022."
+         << " The game gained a large \n\tamount of popularity in December 2021 after Wardle added the ability "
+         << "for players to copy \n\ttheir daily results as emoji squares, which were widely shared on Twitter.\n\n";
 
-        black();
-        cout<<"\n\tABOUT THIS GAME\n";
-        gray();
-        cout<<"\tThis Game is Developed by Ankush Gautam (Ag). I love this game and was my go to partner\n\tduring the lockdown period,"
-        <<"Me and my friend Keeran used to play this daily.\n\n\tI'm currently studying Bachelor in Computer Application and "
-        <<" we are learning C++ in the \n\tcourse so I thought can I make the game which I play daily as it has simple logic \n\tand interface "
-        <<"comparing to other games. So I started to create thisgame and well this \n\tis the progress I have made till now.";
+    cout << BLACK;
+    cout << "\n\tABOUT THIS GAME\n";
+    cout << GREY;
+    cout << "\tThis Game is Developed by Ankush Gautam (Ag). I love this game and was my go to partner\n\tduring the lockdown period,"
+         << "Me and my friend Keeran used to play this daily.\n\n\tI'm currently studying Bachelor in Computer Application and "
+         << " we are learning C++ in the \n\tcourse so I thought can I make the game which I play daily as it has simple logic \n\tand interface "
+         << "comparing to other games. So I started to create thisgame and well this \n\tis the progress I have made till now.";
 
 
-        pause();
-}
-void Menu()
-{
-    int choice;
-    do
-    {
-        system("cls");
-        lightblue();
-        HEADER();
-
-        black();
-        cout<<"\n\tWELCOME TO MAIN MENU\n\n";
-        gray();
-        cout << "\tPress 1 to Start the Game.\n";
-        cout << "\tPress 2 for Leaderboard\n";
-        cout << "\tPress 3 to Learn How to Play\n";
-        cout << "\tPress 4 for About the Game.\n";
-        cout << "\tPress 0 to Exit\n\n";
-
-        cout << "\tEnter your choice:\n\t>> ";
-        cin >> choice;
-
-        switch(choice)
-        {
-        case 1:
-            startGame();
-            break;
-
-        case 2:
-            system("cls");
-            HEADER();
-            black();
-            cout << "\n\tLEADERBOARD";
-            gray();
-
-            cout<<"\n\tAg =  10streaks";
-
-            pause();
-            break;
-
-        case 3:
-            howToPlay();
-            break;
-
-        case 4:
-            about();
-            break;
-        }
-    }
-    while(choice != 0);
+    pause();
 }
 
 
+
+/* ==============================================================================================================
+    MAIN FUNCTION //Driver
+   ============================================================================================================= */
 int main()
 {
+    system("title Wordle By Ag");
     system("color f8");
 
+    Wordle game;
+    game.Menu();
 
-    Menu();
-
-    gotoxy(8, 27); //only while coding
+    gotoxy(8, 16); //only while coding
     return 0;
 }
