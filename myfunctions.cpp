@@ -4,8 +4,6 @@ long long int randomGenerator(int maxSize)
 {
     srand(time(NULL));
     long long int num = rand() % maxSize + 1;
-
-
     return num;
 }
 
@@ -22,8 +20,7 @@ void gotoxy(int x, int y)
     COORD c;
     c.X = x;
     c.Y = y;
-
-    SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), c); // HANDLE h = GetStdHandle(STD_OUTPUT_HANDLE); in Colorsh.h
+    SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), c);
 }
 
 void upperline(int length)
